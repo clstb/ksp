@@ -1,0 +1,104 @@
+---
+kind: pipeline
+type: kubernetes
+name: default
+
+volumes:
+- name: deps
+  temp: {}
+
+steps:
+  - name: deps
+    image: golang:1.14
+    volumes:
+    - name: deps
+      path: /go
+    commands:
+      - go mod download
+
+  - name: fmt
+    image: golang:1.14
+    commands: 
+      - go get golang.org/x/tools/cmd/goimports
+      - make fmt-test
+
+  - name: lint
+    image: golang:1.14
+    volumes:
+    - name: deps
+      path: /go
+    commands: 
+      - go get -u golang.org/x/lint/golint
+      - make lint
+    depends_on:
+      - deps
+
+
+  - name: vet
+    image: golang:1.14
+    volumes:
+    - name: deps
+      path: /go
+    commands:
+      - make vet
+    depends_on:
+      - deps
+
+  - name: test
+    image: golang:1.14
+    volumes:
+    - name: deps
+      path: /go
+    commands:
+      - make test
+    depends_on:
+      - fmt
+      - lint
+      - vet
+    
+  - name: build
+    image: golang:1.14
+    volumes:
+    - name: deps
+      path: /go
+    commands:
+      - make build
+    depends_on:
+      - test
+
+  - name: build-dist
+    image: golang:1.14
+    volumes:
+    - name: deps
+      path: /go
+    commands:
+      - go get github.com/mitchellh/gox
+      - make build-dist
+    depends_on:
+      - test
+    when:
+      event: tag
+
+  - name: publish_docker
+    image: plugins/docker
+    settings:
+      repo: clstb/ksp
+      tags:
+        - ${DRONE_COMMIT_SHA:0:8}
+      username: clstb
+      password:
+        from_secret: docker_password
+      auto_tag: true
+    depends_on:
+      - build
+
+  - name: publish_github
+    image: plugins/github-release
+    settings:
+      api_key:
+        from_secret: github_token
+      files: dist/*
+    depends_on:
+    - build-dist
+    when:
+      event: tag
