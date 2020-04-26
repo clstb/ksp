@@ -3,6 +3,10 @@ kind: pipeline
 type: kubernetes
 name: default
 
+metadata:
+  annotations:
+    sidecar.istio.io/inject: false
+
 volumes:
 - name: deps
   temp: {}
