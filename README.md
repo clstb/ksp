@@ -45,29 +45,32 @@ ksp proxy --port 8000 --config $HOME/.kube/config --injector-gpg
 ```
 kubectl version
 ```
-3. Encrypt some data.
+3. Encrypt a file.
 ```
-ksp gpg encrypt --keys {YOUR_KEY_ID} --data '{"foo": "bar"}'
+ksp g e --keys {YOUR_KEY_ID} --file ./secret.env
 ```
-4. Configure a secret with encrypted data.
-```json
-{
-  "apiVersion": "v1",
-  "kind": "Secret",
-  "metadata": {
-    "name": "example-secret",
-    "namespace": "default",
-    "annotations": {
-      "ksp/inject": "gpg",
-    }
-  },
-  "type": "Opaque",
-  "data": {}
-}
+```sh
+# secret.env
+BAR=foo
+FOO=bar
 ```
+4. Set annotations.
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    'ksp/inject': gpg
+data:
+  BAR: .....
+```
+
+Either add encrypted data manually to the secret or use other tooling to import it.
+For example `kustomize` supports it with the .env secret generator.
+
 5. Apply it.
 ```sh
-kubectl apply -f example-secret.json
+kubectl apply -f secret.yaml
 ```
 
 ## Injectors
