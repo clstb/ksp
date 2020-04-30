@@ -46,7 +46,7 @@ func Run(c *cli.Context) error {
 	for k, v := range data {
 		_, err := b.WriteString(fmt.Sprintf("%s=%s\n", k, v))
 		if err != nil {
-			return errors.Wrap(err, "writing encrypted data failed")
+			return errors.Wrap(err, "writing encrypted data to buffer failed")
 		}
 	}
 
@@ -67,20 +67,15 @@ func readFile(path string) (map[string]string, error) {
 	data := make(map[string]string)
 
 	scanner := bufio.NewScanner(f)
-	line := 0
 	for scanner.Scan() {
-		line++
-
-		splitted := strings.Split(scanner.Text(), "=")
-		if scanner.Err() != nil {
-			return nil, errors.Wrap(err, "reading file failed")
-		}
-		if len(splitted) > 2 {
-			return nil, errors.Errorf("invalid input at line: %d", line)
-		}
-
-		k, v := splitted[0], splitted[1]
+		s := scanner.Text()
+		k := s[:strings.IndexByte(s, '=')]
+		v := s[strings.IndexByte(s, '=')+1:]
 		data[k] = v
+	}
+
+	if scanner.Err() != nil {
+		return nil, errors.Wrap(err, "reading file failed")
 	}
 
 	return data, nil
