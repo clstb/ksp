@@ -115,4 +115,4 @@ The proxy applies following steps to solve this problem:
 4. Call configured injectors with secret
 5. Compute fixed patch from injected secret and cluster state
 6. Rewrite request body with fixed patch
-7. Forward request to kubernetes API server
+7. Forward request to the kubernetes API server
