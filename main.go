@@ -67,8 +67,8 @@ func main() {
 								EnvVar:   "KSP_GPG_KEYS",
 							},
 							&cli.StringFlag{
-								Name:     "data",
-								Usage:    "data to encrypt",
+								Name:     "file",
+								Usage:    "file to decrypt",
 								Required: true,
 							},
 						},
