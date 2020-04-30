@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/clstb/ksp/cmd/gpg/decrypt"
 	"github.com/clstb/ksp/cmd/gpg/encrypt"
 	"github.com/clstb/ksp/cmd/proxy"
 	"github.com/urfave/cli"
@@ -57,15 +58,28 @@ func main() {
 					{
 						Name:    "encrypt",
 						Aliases: []string{"e"},
-						Usage:   "encrypt secrets in provided file",
+						Usage:   "encrypt key=value in provided file",
 						Action:  encrypt.Run,
 						Flags: []cli.Flag{
 							&cli.StringSliceFlag{
 								Name:     "keys",
-								Usage:    "public keys to encrypt with",
+								Usage:    "encryption keys",
 								Required: true,
 								EnvVar:   "KSP_GPG_KEYS",
 							},
+							&cli.StringFlag{
+								Name:     "file",
+								Usage:    "file to encrypt",
+								Required: true,
+							},
+						},
+					},
+					{
+						Name:    "decrypt",
+						Aliases: []string{"d"},
+						Usage:   "decrypt key=value in provided file",
+						Action:  decrypt.Run,
+						Flags: []cli.Flag{
 							&cli.StringFlag{
 								Name:     "file",
 								Usage:    "file to decrypt",
