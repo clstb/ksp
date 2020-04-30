@@ -8,7 +8,7 @@ It runs locally and acts as proxy to your kubernetes api server. This means it i
 #### Table of Contents <!-- omit in toc -->
 - [Installation](#installation)
   - [Go](#go)
-  - [Binary](#binary)
+  - [Binary (Recommended)](#binary-recommended)
   - [Docker (In Development)](#docker-in-development)
 - [Getting started](#getting-started)
   - [GPG](#gpg)
@@ -28,7 +28,7 @@ export GO111MODULE=on
 go get github.com/clstb/ksp
 ```
 
-### Binary
+### Binary (Recommended)
 Download the latest binary [here](https://github.com/clstb/ksp/releases).
 
 ### Docker (In Development)
