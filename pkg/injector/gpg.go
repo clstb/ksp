@@ -17,7 +17,7 @@ type GPG struct {
 
 // NewGPG creates a new gpg injector
 func NewGPG(ctx context.Context) (*GPG, error) {
-	cli, err := cli.New(ctx, cli.Config{})
+	cli, err := cli.New(ctx, cli.Config{Args: []string{"--armor"}})
 	if err != nil {
 		return nil, errors.Wrap(err, "wrapping gpg cli failed")
 	}
