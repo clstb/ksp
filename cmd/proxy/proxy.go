@@ -1,23 +1,31 @@
 package proxy
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"fmt"
 	"log"
+	"math/big"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/clstb/ksp/pkg/handler"
 	"github.com/clstb/ksp/pkg/injector"
 	mw "github.com/clstb/ksp/pkg/middleware"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
+	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -56,10 +64,20 @@ func Run(c *cli.Context) error {
 		}
 	}
 
+	cert, key, err := keyPair()
+	if err != nil {
+		return err
+	}
+
+	tlsCert, err := tls.X509KeyPair(cert, key)
+	if err != nil {
+		return err
+	}
+
 	for k, v := range kubeConfig.Clusters {
 		cluster := &api.Cluster{
-			Server:                fmt.Sprintf("https://localhost:%d/%s", port, k),
-			InsecureSkipTLSVerify: true,
+			Server:                   fmt.Sprintf("https://localhost:%d/%s", port, k),
+			CertificateAuthorityData: cert,
 		}
 		proxyConfig.Clusters[k] = cluster
 
@@ -101,10 +119,17 @@ func Run(c *cli.Context) error {
 	}
 
 	go func() {
-		log.Printf("http: listening for requests...\n")
-		if err := http.ListenAndServeTLS(fmt.Sprintf(":%d", port), "server.crt", "server.key", r); err != nil {
-			log.Fatal(err)
+		c := &tls.Config{Certificates: []tls.Certificate{tlsCert}}
+		s := &http.Server{
+			Addr:         fmt.Sprintf(":%d", port),
+			Handler:      r,
+			TLSConfig:    c,
+			ReadTimeout:  time.Minute,
+			WriteTimeout: time.Minute,
 		}
+
+		log.Printf("http: listening for requests...\n")
+		log.Fatal(s.ListenAndServeTLS("", ""))
 	}()
 
 	if err := clientcmd.WriteToFile(*kubeConfig, config+".ksp.bak"); err != nil {
@@ -124,4 +149,47 @@ func Run(c *cli.Context) error {
 	}
 
 	return nil
+}
+
+func keyPair() ([]byte, []byte, error) {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "generating rsa key failed")
+	}
+
+	tpl := x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "localhost"},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().AddDate(2, 0, 0),
+		BasicConstraintsValid: true,
+		ExtKeyUsage: []x509.ExtKeyUsage{
+			x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth,
+		},
+		KeyUsage: x509.KeyUsageCertSign,
+	}
+	cert, err := x509.CreateCertificate(rand.Reader, &tpl, &tpl, &privateKey.PublicKey, privateKey)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "generating cert failed")
+	}
+
+	var certBuf bytes.Buffer
+	if err := pem.Encode(&certBuf, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: cert,
+	}); err != nil {
+		return nil, nil, errors.Wrap(err, "pem encoding cert failed")
+	}
+	pemCert := certBuf.Bytes()
+
+	var keyBuf bytes.Buffer
+	if err := pem.Encode(&keyBuf, &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
+	}); err != nil {
+		return nil, nil, errors.Wrap(err, "pem encoding rsa key failed")
+	}
+	pemKey := keyBuf.Bytes()
+
+	return pemCert, pemKey, nil
 }
