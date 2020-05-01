@@ -2,6 +2,7 @@ package injector
 
 import (
 	"context"
+	"encoding/base64"
 
 	cli "github.com/gopasspw/gopass/pkg/backend/crypto/gpg/cli"
 	"github.com/pkg/errors"
@@ -36,7 +37,12 @@ func (i *GPG) Inject(secret *corev1.Secret) (*corev1.Secret, error) {
 	}
 
 	for k, v := range secret.Data {
-		v, err := i.Decrypt(v)
+		decoded, err := base64.StdEncoding.DecodeString(string(v))
+		if err != nil {
+			return secret, errors.Wrap(err, "decoding failed")
+		}
+
+		v, err := i.Decrypt(decoded)
 		if err != nil {
 			return secret, errors.Wrap(err, "decrypting failed")
 		}
